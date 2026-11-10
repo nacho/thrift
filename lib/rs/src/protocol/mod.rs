@@ -89,6 +89,8 @@ macro_rules! set_readable_bytes {
 
 mod binary;
 mod compact;
+#[cfg(feature = "json")]
+mod json;
 mod multiplexed;
 mod stored;
 
@@ -99,6 +101,10 @@ pub use self::binary::{
 pub use self::compact::{
     TCompactInputProtocol, TCompactInputProtocolFactory, TCompactOutputProtocol,
     TCompactOutputProtocolFactory,
+};
+#[cfg(feature = "json")]
+pub use self::json::{
+    TJsonInputProtocol, TJsonInputProtocolFactory, TJsonOutputProtocol, TJsonOutputProtocolFactory,
 };
 pub use self::multiplexed::TMultiplexedOutputProtocol;
 pub use self::stored::TStoredInputProtocol;
@@ -219,6 +225,7 @@ pub trait TInputProtocol {
                         break;
                     }
                     self.skip_till_depth(field_ident.field_type, depth - 1)?;
+                    self.read_field_end()?;
                 }
                 self.read_struct_end()
             }
@@ -1420,5 +1427,126 @@ mod tests {
         assert_eq!(first, 42);
         assert_eq!(second, Some(11));
         assert_skip_fill_at_most_256(&peak);
+    }
+
+    struct FieldEndCounter<P> {
+        inner: P,
+        field_begins: usize,
+        field_ends: usize,
+    }
+
+    impl<P: TInputProtocol> TInputProtocol for FieldEndCounter<P> {
+        fn read_message_begin(&mut self) -> crate::Result<TMessageIdentifier> {
+            self.inner.read_message_begin()
+        }
+        fn read_message_end(&mut self) -> crate::Result<()> {
+            self.inner.read_message_end()
+        }
+        fn read_struct_begin(&mut self) -> crate::Result<Option<TStructIdentifier>> {
+            self.inner.read_struct_begin()
+        }
+        fn read_struct_end(&mut self) -> crate::Result<()> {
+            self.inner.read_struct_end()
+        }
+        fn read_field_begin(&mut self) -> crate::Result<TFieldIdentifier> {
+            let ident = self.inner.read_field_begin()?;
+            if ident.field_type != TType::Stop {
+                self.field_begins += 1;
+            }
+            Ok(ident)
+        }
+        fn read_field_end(&mut self) -> crate::Result<()> {
+            self.field_ends += 1;
+            self.inner.read_field_end()
+        }
+        fn read_bool(&mut self) -> crate::Result<bool> {
+            self.inner.read_bool()
+        }
+        fn read_bytes(&mut self) -> crate::Result<Vec<u8>> {
+            self.inner.read_bytes()
+        }
+        fn read_i8(&mut self) -> crate::Result<i8> {
+            self.inner.read_i8()
+        }
+        fn read_i16(&mut self) -> crate::Result<i16> {
+            self.inner.read_i16()
+        }
+        fn read_i32(&mut self) -> crate::Result<i32> {
+            self.inner.read_i32()
+        }
+        fn read_i64(&mut self) -> crate::Result<i64> {
+            self.inner.read_i64()
+        }
+        fn read_double(&mut self) -> crate::Result<f64> {
+            self.inner.read_double()
+        }
+        fn read_uuid(&mut self) -> crate::Result<uuid::Uuid> {
+            self.inner.read_uuid()
+        }
+        fn read_string(&mut self) -> crate::Result<String> {
+            self.inner.read_string()
+        }
+        fn read_list_begin(&mut self) -> crate::Result<TListIdentifier> {
+            self.inner.read_list_begin()
+        }
+        fn read_list_end(&mut self) -> crate::Result<()> {
+            self.inner.read_list_end()
+        }
+        fn read_set_begin(&mut self) -> crate::Result<TSetIdentifier> {
+            self.inner.read_set_begin()
+        }
+        fn read_set_end(&mut self) -> crate::Result<()> {
+            self.inner.read_set_end()
+        }
+        fn read_map_begin(&mut self) -> crate::Result<TMapIdentifier> {
+            self.inner.read_map_begin()
+        }
+        fn read_map_end(&mut self) -> crate::Result<()> {
+            self.inner.read_map_end()
+        }
+        fn read_byte(&mut self) -> crate::Result<u8> {
+            self.inner.read_byte()
+        }
+    }
+
+    #[test]
+    fn must_end_every_field_read_while_skipping_a_struct() {
+        let mut buf = Vec::new();
+        {
+            let mut o_prot = TBinaryOutputProtocol::new(&mut buf, true);
+            o_prot
+                .write_struct_begin(&TStructIdentifier::new("outer"))
+                .unwrap();
+            o_prot
+                .write_field_begin(&TFieldIdentifier::new("a", TType::I32, 1))
+                .unwrap();
+            o_prot.write_i32(1).unwrap();
+            o_prot.write_field_end().unwrap();
+            o_prot
+                .write_field_begin(&TFieldIdentifier::new("b", TType::Struct, 2))
+                .unwrap();
+            o_prot
+                .write_struct_begin(&TStructIdentifier::new("inner"))
+                .unwrap();
+            o_prot
+                .write_field_begin(&TFieldIdentifier::new("c", TType::String, 1))
+                .unwrap();
+            o_prot.write_string("c").unwrap();
+            o_prot.write_field_end().unwrap();
+            o_prot.write_field_stop().unwrap();
+            o_prot.write_struct_end().unwrap();
+            o_prot.write_field_end().unwrap();
+            o_prot.write_field_stop().unwrap();
+            o_prot.write_struct_end().unwrap();
+        }
+
+        let mut i_prot = FieldEndCounter {
+            inner: TBinaryInputProtocol::new(Cursor::new(buf), true),
+            field_begins: 0,
+            field_ends: 0,
+        };
+        i_prot.skip(TType::Struct).unwrap();
+        assert_eq!(i_prot.field_begins, 3);
+        assert_eq!(i_prot.field_ends, 3);
     }
 }

@@ -33,6 +33,41 @@ types and services by writing their own code on top.
 Add `thrift = "x.y.z"` to your `Cargo.toml`, where `x.y.z` is the version of the
 Thrift compiler you're using.
 
+### Cargo features
+
+| Feature   | Default | Description |
+|-----------|---------|-------------|
+| `server`  | yes     | `TServer` and the multiplexed processor |
+| `rustls`  | no      | TLS channels, see [TLS](#tls) |
+| `json`    | no      | The JSON protocol, see [JSON protocol](#json-protocol) |
+
+### JSON protocol
+
+`TJsonInputProtocol` and `TJsonOutputProtocol` implement the Thrift JSON
+protocol (`TJSONProtocol` in the other Thrift libraries) and are available
+through the optional `json` feature:
+
+```toml
+[dependencies]
+thrift = { version = "x.y.z", features = ["json"] }
+```
+
+The output is the same as that of the C++ and Java libraries. Structs are
+JSON objects keyed by field id, for example `{"1":{"i32":5},"2":{"str":"x"}}`.
+The reader does not accept whitespace between tokens, like the other libraries.
+
+A single struct can be written and read on its own, without a message around
+it, to exchange values with other JSON protocol users:
+
+```rust,ignore
+use thrift::protocol::{TJsonInputProtocol, TJsonOutputProtocol, TSerializable};
+
+let mut buf = Vec::new();
+value.write_to_out_protocol(&mut TJsonOutputProtocol::new(&mut buf))?;
+
+let read = MyStruct::read_from_in_protocol(&mut TJsonInputProtocol::new(&buf[..]))?;
+```
+
 ### TLS
 
 TLS client and server channels are available through the optional `rustls`

@@ -50,6 +50,8 @@ EXTRA_DIST = \
 	fuzz_targets/parse_binary.rs \
 	fuzz_targets/roundtrip_binary.rs \
 	fuzz_targets/roundtrip_compact.rs \
+	fuzz_targets/parse_json.rs \
+	fuzz_targets/roundtrip_json.rs \
 	fuzz_targets/structured_roundtrip_compact.rs \
 	fuzz_targets/structured_roundtrip_binary.rs \
 	bin/corpus_generator.rs

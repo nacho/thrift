@@ -361,7 +361,7 @@ language; it is the effective minimum the project stands behind for that release
 <!-- Field types -----------><td><img src="/doc/images/cgrn.png" alt="Yes"/></td>
 <!-- Low-Level Transports --><td><img src="/doc/images/cgrn.png" alt="Yes"/></td><td><img src="/doc/images/cred.png" alt=""/></td><td><img src="/doc/images/cgrn.png" alt="Yes"/></td><td><img src="/doc/images/cred.png" alt=""/></td><td><img src="/doc/images/cgrn.png" alt="Yes"/></td><td><img src="/doc/images/cgrn.png" alt="Yes"/></td>
 <!-- Transport Wrappers ----><td><img src="/doc/images/cgrn.png" alt="Yes"/></td><td><img src="/doc/images/cred.png" alt=""/></td><td><img src="/doc/images/cred.png" alt=""/></td><td><img src="/doc/images/cred.png" alt=""/></td>
-<!-- Protocols -------------><td><img src="/doc/images/cgrn.png" alt="Yes"/></td><td><img src="/doc/images/cgrn.png" alt="Yes"/></td><td><img src="/doc/images/cred.png" alt=""/></td><td><img src="/doc/images/cgrn.png" alt="Yes"/></td>
+<!-- Protocols -------------><td><img src="/doc/images/cgrn.png" alt="Yes"/></td><td><img src="/doc/images/cgrn.png" alt="Yes"/></td><td><img src="/doc/images/cgrn.png" alt="Yes"/></td><td><img src="/doc/images/cgrn.png" alt="Yes"/></td>
 <!-- Servers ---------------><td><img src="/doc/images/cred.png" alt=""/></td><td><img src="/doc/images/cred.png" alt=""/></td><td><img src="/doc/images/cred.png" alt=""/></td><td><img src="/doc/images/cgrn.png" alt="Yes"/></td><td><img src="/doc/images/cgrn.png" alt="Yes"/></td>
 <td align=left><a href="https://issues.apache.org/jira/issues/?jql=project%20%3D%20THRIFT%20AND%20component%20in%20(%22Rust%20-%20Compiler%22%2C%20%22Rust%20-%20Library%22)%20and%20status%20not%20in%20(fixed%2C%20resolved%2C%20closed)">Rust</a></td>
 </tr>
@@ -411,6 +411,10 @@ Some entries in the table carry a condition that a single cell cannot express:
   feature, which is off by default. See
   [TLS](https://github.com/apache/thrift/blob/master/lib/rs/README.md#tls) in the
   Rust README.
+* **Rust JSON**: the JSON protocol is available through the optional `json`
+  feature, which is off by default. See
+  [Cargo features](https://github.com/apache/thrift/blob/master/lib/rs/README.md#cargo-features)
+  in the Rust README.
 * **Rust domain sockets**: `TServer::listen_uds` is compiled on Unix platforms only.
 * **Java language levels**: the build runs on JDK 17 and the cross-language tests run
   on Java 8, and the Gradle build uses a JDK 17 toolchain with `options.release = 8`,

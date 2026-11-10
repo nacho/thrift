@@ -36,7 +36,8 @@ use std::path::Path;
 use thrift::OrderedFloat;
 use thrift::protocol::{
     TBinaryInputProtocol, TBinaryOutputProtocol, TCompactInputProtocol, TCompactOutputProtocol,
-    TInputProtocol, TMultiplexedOutputProtocol, TOutputProtocol,
+    TInputProtocol, TJsonInputProtocol, TJsonOutputProtocol, TMultiplexedOutputProtocol,
+    TOutputProtocol,
 };
 use thrift::transport::{
     TBufferedReadTransport, TBufferedWriteTransport, TFramedReadTransport, TFramedWriteTransport,
@@ -79,7 +80,7 @@ fn run() -> thrift::Result<()> {
         (@arg port: --port +takes_value "Port on which the Thrift test server is listening")
         (@arg domain_socket: --("domain-socket") +takes_value "Unix Domain Socket on which the Thrift test server is listening")
         (@arg ssl: --ssl "Use TLS")
-        (@arg protocol: --protocol +takes_value "Thrift protocol implementation to use (\"binary\", \"compact\", \"multi\", \"multic\")")
+        (@arg protocol: --protocol +takes_value "Thrift protocol implementation to use (\"binary\", \"compact\", \"json\", \"multi\", \"multic\", \"multij\")")
         (@arg transport: --transport +takes_value "Thrift transport implementation to use (\"buffered\", \"framed\")")
         (@arg testloops: -n --testloops +takes_value "Number of times to run tests")
     )
@@ -330,6 +331,17 @@ fn build<C: TIoChannel + 'static>(
             Box::new(TMultiplexedOutputProtocol::new(
                 service_name,
                 TCompactOutputProtocol::new(o_tran),
+            )),
+        ),
+        "json" => (
+            Box::new(TJsonInputProtocol::new(i_tran)),
+            Box::new(TJsonOutputProtocol::new(o_tran)),
+        ),
+        "multij" => (
+            Box::new(TJsonInputProtocol::new(i_tran)),
+            Box::new(TMultiplexedOutputProtocol::new(
+                service_name,
+                TJsonOutputProtocol::new(o_tran),
             )),
         ),
         unmatched => return Err(format!("unsupported protocol {}", unmatched).into()),

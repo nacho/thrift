@@ -546,4 +546,206 @@ mod tests {
             &mut TCompactInputProtocol::new(Cursor::new(deep)),
         ));
     }
+
+    fn to_json<T: thrift::protocol::TSerializable>(value: &T) -> String {
+        let mut buf = Vec::new();
+        value
+            .write_to_out_protocol(&mut thrift::protocol::TJsonOutputProtocol::new(&mut buf))
+            .unwrap();
+        String::from_utf8(buf).unwrap()
+    }
+
+    fn from_json<T: thrift::protocol::TSerializable>(json: &str) -> thrift::Result<T> {
+        let mut i_prot = thrift::protocol::TJsonInputProtocol::new(json.as_bytes());
+        T::read_from_in_protocol(&mut i_prot)
+    }
+
+    fn assert_json_round_trip<T>(value: &T) -> String
+    where
+        T: thrift::protocol::TSerializable + PartialEq + std::fmt::Debug,
+    {
+        let json = to_json(value);
+        assert_eq!(&from_json::<T>(&json).unwrap(), value, "{}", json);
+        json
+    }
+
+    #[test]
+    fn must_write_generated_structs_as_json() {
+        let noodle = base_one::Noodle::new("spelt".to_owned(), 110);
+        assert_eq!(
+            assert_json_round_trip(&noodle),
+            r#"{"1":{"str":"spelt"},"2":{"i64":110}}"#
+        );
+        assert_eq!(to_json(&base_one::Noodle::default()), "{}");
+        assert_eq!(
+            from_json::<base_one::Noodle>("{}").unwrap(),
+            base_one::Noodle::new(String::new(), 0)
+        );
+        assert_eq!(
+            assert_json_round_trip(&base_two::Ramen::new(None, 3, base_two::BrothType::SHOUYU)),
+            r#"{"2":{"i32":3},"3":{"i32":1}}"#
+        );
+    }
+
+    #[test]
+    fn must_round_trip_generated_types_through_json() {
+        use std::collections::{BTreeMap, BTreeSet};
+        use thrift::OrderedFloat;
+
+        assert_json_round_trip(&base_one::Spaghetti::new(vec![
+            base_one::Noodle::new("durum".to_owned(), 100),
+            base_one::Noodle::new(String::new(), 0),
+        ]));
+        assert_json_round_trip(&base_one::Spaghetti::new(Vec::new()));
+        assert_json_round_trip(&base_one::Spaghetti::default());
+
+        let temperatures = base_one::CookingTemperatures::new(
+            BTreeSet::from([OrderedFloat(-40.0), OrderedFloat(f64::INFINITY)]),
+            vec![OrderedFloat(0.1), OrderedFloat(1e300), OrderedFloat(-0.0)],
+            BTreeMap::from([
+                (OrderedFloat(212.0), OrderedFloat(100.0)),
+                (OrderedFloat(f64::NEG_INFINITY), OrderedFloat(-1.5)),
+            ]),
+        );
+        assert_eq!(
+            assert_json_round_trip(&temperatures),
+            r#"{"1":{"set":["dbl",2,-40,"Infinity"]},"2":{"lst":["dbl",3,0.1,1e300,-0]},"3":{"map":["dbl","dbl",2,{"-Infinity":-1.5,"212":100}]}}"#
+        );
+
+        let recipe = base_one::Recipe::new(
+            "Soup \"of the day\"\n".to_owned(),
+            "日本".to_owned(),
+            -3,
+            uuid::Uuid::parse_str("00112233-4455-6677-8899-aabbccddeeff").unwrap(),
+        );
+        assert_json_round_trip(&recipe);
+
+        assert_json_round_trip(&base_one::CookingTools::MeasuringSpoons(BTreeSet::from([
+            base_one::MeasuringSpoon::new(1),
+            base_one::MeasuringSpoon::new(2),
+        ])));
+        assert_eq!(
+            assert_json_round_trip(&base_one::CookingTools::MeasuringCups(BTreeMap::from([
+                (1, "one".to_owned()),
+                (-2, "minus two".to_owned()),
+            ]))),
+            r#"{"2":{"map":["i8","str",2,{"-2":"minus two","1":"one"}]}}"#
+        );
+        assert_json_round_trip(&base_one::CookingTools::Recipes(vec![recipe]));
+
+        assert_json_round_trip(&base_one::AidKit::new(base_one::MeasuringAids::Cup(
+            base_one::MeasuringCup::new(OrderedFloat(250.0)),
+        )));
+        assert_json_round_trip(&base_one::InstrumentBox::new(
+            base_one::InstrumentUnion::MeasuringAids(base_one::MeasuringAids::Spoon(
+                base_one::MeasuringSpoon::new(5),
+            )),
+            7,
+        ));
+
+        assert_json_round_trip(&ultimate::FullMealAndDrinks::new(
+            ultimate::FullMeal::new(
+                midlayer::Meal::new(
+                    base_one::Noodle::new("rice".to_owned(), 90),
+                    base_two::Ramen::new("tonkotsu".to_owned(), 12, base_two::BrothType::MISO),
+                ),
+                midlayer::Dessert::Port("ruby".to_owned()),
+            ),
+            ultimate::Drink::WHISKEY,
+        ));
+    }
+
+    #[test]
+    fn must_round_trip_recursive_types_through_json() {
+        let tree = recursive::RecTree::new(
+            vec![
+                Box::new(recursive::RecTree::new(Vec::new(), 2)),
+                Box::new(recursive::RecTree::new(
+                    vec![Box::new(recursive::RecTree::new(Vec::new(), 4))],
+                    3,
+                )),
+            ],
+            1,
+        );
+        assert_json_round_trip(&tree);
+
+        let list = recursive::RecList::new(
+            Box::new(recursive::RecList::new(
+                Box::new(recursive::RecList::new(None, 3)),
+                2,
+            )),
+            1,
+        );
+        assert_json_round_trip(&recursive::VectorTest::new(vec![list.clone(), list]));
+
+        assert_json_round_trip(&recursive::CoRec::new(Box::new(recursive::CoRec2::new(
+            recursive::CoRec::new(None),
+        ))));
+    }
+
+    #[test]
+    fn must_skip_unknown_fields_in_json() {
+        let noodle: base_one::Noodle = from_json(
+            r#"{"1":{"str":"spelt"},"5":{"lst":["rec",1,{"1":{"map":["i32","str",1,{"1":"x"}]}}]},"6":{"dbl":"NaN"},"2":{"i64":110}}"#,
+        )
+        .unwrap();
+        assert_eq!(noodle, base_one::Noodle::new("spelt".to_owned(), 110));
+    }
+
+    #[test]
+    fn unknown_union_variant_in_json_struct_field_is_treated_as_none() {
+        let kit: base_one::AidKit = from_json(r#"{"1":{"rec":{"99":{"i32":42}}}}"#).unwrap();
+        assert!(kit.aid.is_none());
+
+        let aids: base_one::MeasuringAids =
+            from_json(r#"{"2":{"rec":{"1":{"dbl":250}}},"99":{"i32":0}}"#).unwrap();
+        assert_eq!(
+            aids,
+            base_one::MeasuringAids::Cup(base_one::MeasuringCup::new(thrift::OrderedFloat(250.0)))
+        );
+
+        let instrument_box: base_one::InstrumentBox =
+            from_json(r#"{"1":{"rec":{"1":{"rec":{"99":{"i32":42}}}}},"2":{"i32":7}}"#).unwrap();
+        assert!(instrument_box.instrument.is_none());
+        assert_eq!(instrument_box.tag, Some(7));
+    }
+
+    #[test]
+    fn must_reject_json_missing_required_field() {
+        assert!(from_json::<base_two::Ramen>(r#"{"1":{"str":"miso"}}"#).is_err());
+    }
+
+    struct RamenHandler;
+
+    impl base_two::NapkinServiceSyncHandler for RamenHandler {
+        fn handle_napkin(&self) -> thrift::Result<base_two::Napkin> {
+            Ok(base_two::Napkin {})
+        }
+    }
+
+    impl base_two::RamenServiceSyncHandler for RamenHandler {
+        fn handle_ramen(&self, requested_noodle_count: i32) -> thrift::Result<base_two::Ramen> {
+            Ok(base_two::Ramen::new(None, requested_noodle_count, None))
+        }
+    }
+
+    #[test]
+    fn processor_must_read_whole_json_messages() {
+        use thrift::protocol::{TJsonInputProtocol, TJsonOutputProtocol};
+        use thrift::server::TProcessor;
+
+        let processor = base_two::RamenServiceSyncProcessor::new(RamenHandler);
+        let requests = r#"[1,"ramen",1,1,{"1":{"i32":3}}][1,"napkin",1,2,{}]"#;
+        let mut i_prot = TJsonInputProtocol::new(requests.as_bytes());
+        let mut replies = Vec::new();
+        {
+            let mut o_prot = TJsonOutputProtocol::new(&mut replies);
+            processor.process(&mut i_prot, &mut o_prot).unwrap();
+            processor.process(&mut i_prot, &mut o_prot).unwrap();
+        }
+        assert_eq!(
+            String::from_utf8(replies).unwrap(),
+            r#"[1,"ramen",2,1,{"0":{"rec":{"2":{"i32":3}}}}][1,"napkin",2,2,{"0":{"rec":{}}}]"#
+        );
+    }
 }

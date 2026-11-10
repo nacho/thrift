@@ -21,7 +21,8 @@ use std::fs::{self, File};
 use std::io::Read;
 use std::path::Path;
 use thrift::protocol::{
-    TBinaryOutputProtocol, TCompactOutputProtocol, TOutputProtocol, TSerializable,
+    TBinaryOutputProtocol, TCompactOutputProtocol, TJsonOutputProtocol, TOutputProtocol,
+    TSerializable,
 };
 use thrift::transport::TBufferChannel;
 use thrift_fuzz::fuzz_test::FuzzTest;
@@ -41,7 +42,7 @@ struct Args {
     #[arg(short, long)]
     output_dir: String,
 
-    /// Protocol to use for serialization (binary or compact)
+    /// Protocol to use for serialization (binary, compact or json)
     #[arg(short, long)]
     protocol: String,
 
@@ -71,7 +72,12 @@ fn serialize_fuzz_test(
             fuzz_test.write_to_out_protocol(&mut out_protocol)?;
             out_protocol.flush()?;
         }
-        _ => return Err("Invalid protocol specified. Use 'binary' or 'compact'".into()),
+        "json" => {
+            let mut out_protocol = TJsonOutputProtocol::new(&mut mem);
+            fuzz_test.write_to_out_protocol(&mut out_protocol)?;
+            out_protocol.flush()?;
+        }
+        _ => return Err("Invalid protocol specified. Use 'binary', 'compact' or 'json'".into()),
     }
     Ok(mem.write_bytes().to_vec())
 }
@@ -138,8 +144,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     // Validate protocol
-    if args.protocol != "binary" && args.protocol != "compact" {
-        return Err("Invalid protocol specified. Use 'binary' or 'compact'".into());
+    if !["binary", "compact", "json"].contains(&args.protocol.as_str()) {
+        return Err("Invalid protocol specified. Use 'binary', 'compact' or 'json'".into());
     }
 
     // Create output directory if it doesn't exist

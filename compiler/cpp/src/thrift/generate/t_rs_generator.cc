@@ -2766,6 +2766,7 @@ void t_rs_generator::render_sync_process_function(t_function* tfunc, const strin
   // *always* read arguments from the input protocol
   f_gen_ << indent() << "let " << (has_non_void_args(tfunc) ? "args" : "_") << " = "
          << service_call_args_struct_name(tfunc) << "::read_from_in_protocol(i_prot)?;" << '\n';
+  f_gen_ << indent() << "i_prot.read_message_end()?;" << '\n';
 
   f_gen_ << indent() << "match handler." << service_call_handler_function_name(tfunc)
          << rust_sync_service_call_invocation(tfunc, "args.") << " {" << '\n'; // start match

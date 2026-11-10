@@ -879,7 +879,8 @@
       ],
       "protocols": [
         "binary:multi",
-        "compact:multic"
+        "compact:multic",
+        "json:multij"
       ]
     },
     "client": {
@@ -889,7 +890,8 @@
       ],
       "protocols": [
         "multi:binary",
-        "multic:compact"
+        "multic:compact",
+        "multij:json"
       ]
     },
     "sockets": [
@@ -904,8 +906,10 @@
     "protocols": [
       "binary",
       "compact",
+      "json",
       "multi",
-      "multic"
+      "multic",
+      "multij"
     ],
     "workdir": "rs/bin"
   },

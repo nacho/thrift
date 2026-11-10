@@ -34,7 +34,9 @@ install:
 check-local:
 	$(CARGO) fmt --all -- --check
 	$(CARGO) clippy --all -- -D warnings
+	$(CARGO) clippy --all --features json -- -D warnings
 	$(CARGO) test
+	$(CARGO) test --features json
 
 all-local:
 	$(CARGO) fmt --all -- --check

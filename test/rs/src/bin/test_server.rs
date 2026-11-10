@@ -29,7 +29,8 @@ use std::time::Duration;
 use thrift::OrderedFloat;
 use thrift::protocol::{
     TBinaryInputProtocolFactory, TBinaryOutputProtocolFactory, TCompactInputProtocolFactory,
-    TCompactOutputProtocolFactory, TInputProtocolFactory, TOutputProtocolFactory,
+    TCompactOutputProtocolFactory, TInputProtocolFactory, TJsonInputProtocolFactory,
+    TJsonOutputProtocolFactory, TOutputProtocolFactory,
 };
 use thrift::server::{TMultiplexedProcessor, TServer};
 use thrift::transport::{
@@ -66,7 +67,7 @@ fn run() -> thrift::Result<()> {
         (@arg domain_socket: --("domain-socket") +takes_value "Unix Domain Socket on which the test server listens")
         (@arg ssl: --ssl "Use TLS")
         (@arg transport: --transport +takes_value "transport implementation to use (\"buffered\", \"framed\")")
-        (@arg protocol: --protocol +takes_value "protocol implementation to use (\"binary\", \"compact\")")
+        (@arg protocol: --protocol +takes_value "protocol implementation to use (\"binary\", \"compact\", \"json\", \"multi\", \"multic\", \"multij\")")
         (@arg server_type: --("server-type") +takes_value "type of server instantiated (\"simple\", \"thread-pool\")")
         (@arg workers: -n --workers +takes_value "number of thread-pool workers (\"4\")")
     )
@@ -119,6 +120,10 @@ fn run() -> thrift::Result<()> {
             Box::new(TCompactInputProtocolFactory::new()),
             Box::new(TCompactOutputProtocolFactory::new()),
         ),
+        "json" | "multij" | "multi:json" => (
+            Box::new(TJsonInputProtocolFactory::new()),
+            Box::new(TJsonOutputProtocolFactory::new()),
+        ),
         unknown => {
             return Err(format!("unsupported transport type {}", unknown).into());
         }
@@ -128,7 +133,7 @@ fn run() -> thrift::Result<()> {
 
     match server_type {
         "simple" | "thread-pool" => {
-            if protocol == "multi" || protocol == "multic" {
+            if protocol == "multi" || protocol == "multic" || protocol == "multij" {
                 let second_service_processor =
                     SecondServiceSyncProcessor::new(SecondServiceSyncHandlerImpl {});
 

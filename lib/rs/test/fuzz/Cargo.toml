@@ -38,6 +38,7 @@ rand = "0.9"
 
 [dependencies.thrift]
 path = "../../../../lib/rs"
+features = ["json"]
 
 [[bin]]
 name = "corpus_generator"
@@ -67,6 +68,20 @@ bench = false
 [[bin]]
 name = "roundtrip_compact"
 path = "fuzz_targets/roundtrip_compact.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "parse_json"
+path = "fuzz_targets/parse_json.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "roundtrip_json"
+path = "fuzz_targets/roundtrip_json.rs"
 test = false
 doc = false
 bench = false
