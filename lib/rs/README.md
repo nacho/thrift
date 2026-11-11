@@ -94,6 +94,14 @@ let envelope = Envelope {
 A required field that is left at its default is still written, with that
 value, like the C++ and Java libraries do for a default-constructed struct.
 
+### Enum names
+
+Generated enums are open: they hold any `i32`, so values from newer peers
+round-trip. `variant_name()` returns the name of a value as written in the IDL,
+or `None` for a value the IDL does not define. `Display` writes the same name,
+or the number for an undefined value, like the C++ library. `Debug` stays
+`Status(2)`. A value the IDL defines more than once gets its first name.
+
 ### TLS
 
 TLS client and server channels are available through the optional `rustls`

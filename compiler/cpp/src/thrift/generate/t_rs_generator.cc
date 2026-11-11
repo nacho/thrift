@@ -143,6 +143,10 @@ private:
   // Write `impl Default` for an enum: its first value in IDL order, or 0 if it has none.
   void render_enum_default(t_enum* tenum, const string& enum_name);
 
+  // Write `impl Display` for an enum: the IDL name of the value, or the number for a value the
+  // IDL does not define.
+  void render_enum_display(const string& enum_name);
+
   // Write the impl blocks associated with the traits necessary to convert an enum to/from an i32.
   void render_enum_conversion(t_enum* tenum, const string& enum_name);
 
@@ -939,7 +943,27 @@ void t_rs_generator::generate_enum(t_enum* tenum) {
   render_enum_definition(tenum, enum_name);
   render_enum_impl(tenum, enum_name);
   render_enum_default(tenum, enum_name);
+  render_enum_display(enum_name);
   render_enum_conversion(tenum, enum_name);
+}
+
+void t_rs_generator::render_enum_display(const string& enum_name) {
+  f_gen_ << "impl std::fmt::Display for " << enum_name << " {" << '\n';
+  indent_up();
+  f_gen_ << indent() << "fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {"
+         << '\n';
+  indent_up();
+  f_gen_ << indent() << "match self.variant_name() {" << '\n';
+  indent_up();
+  f_gen_ << indent() << "Some(name) => f.pad(name)," << '\n';
+  f_gen_ << indent() << "None => std::fmt::Display::fmt(&self.0, f)," << '\n';
+  indent_down();
+  f_gen_ << indent() << "}" << '\n';
+  indent_down();
+  f_gen_ << indent() << "}" << '\n';
+  indent_down();
+  f_gen_ << "}" << '\n';
+  f_gen_ << '\n';
 }
 
 void t_rs_generator::render_enum_default(t_enum* tenum, const string& enum_name) {
@@ -1000,6 +1024,36 @@ void t_rs_generator::render_enum_impl(t_enum* tenum, const string& enum_name) {
     }
     indent_down();
     f_gen_ << indent() << "];" << '\n';
+  }
+
+  // IDL name of each enum variant
+  {
+    f_gen_ << indent() << "/// The name of this value in the IDL, or `None` for a value" << '\n';
+    f_gen_ << indent() << "/// the IDL does not define. A value defined more than once" << '\n';
+    f_gen_ << indent() << "/// gets its first name." << '\n';
+    f_gen_ << indent() << "pub fn variant_name(&self) -> Option<&'static str> {" << '\n';
+    indent_up();
+    if (constants.empty()) {
+      f_gen_ << indent() << "None" << '\n';
+    } else {
+      f_gen_ << indent() << "match self.0 {" << '\n';
+      indent_up();
+      set<int> seen_values;
+      vector<t_enum_value*>::iterator constants_iter;
+      for (constants_iter = constants.begin(); constants_iter != constants.end();
+           ++constants_iter) {
+        t_enum_value* val = (*constants_iter);
+        if (seen_values.insert(val->get_value()).second) {
+          f_gen_ << indent() << val->get_value() << " => Some(\"" << val->get_name() << "\"),"
+                 << '\n';
+        }
+      }
+      f_gen_ << indent() << "_ => None," << '\n';
+      indent_down();
+      f_gen_ << indent() << "}" << '\n';
+    }
+    indent_down();
+    f_gen_ << indent() << "}" << '\n';
   }
 
   indent_down();

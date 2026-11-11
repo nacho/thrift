@@ -768,6 +768,27 @@ mod tests {
     }
 
     #[test]
+    fn must_display_enums_with_their_idl_names() {
+        use defaults_test::Action;
+
+        assert_eq!(Action::OPEN_FILE.to_string(), "OpenFile");
+        assert_eq!(Action::SUCCESS.to_string(), "SUCCESS");
+        assert_eq!(format!("{}", Action::CLOSE_ALL), "closeAll");
+        assert_eq!(Action::DONE.to_string(), "SUCCESS");
+        assert_eq!(Action::CLOSE_ALL.variant_name(), Some("closeAll"));
+
+        assert_eq!(Action(99).to_string(), "99");
+        assert_eq!(Action(-1).to_string(), "-1");
+        assert_eq!(Action(99).variant_name(), None);
+        assert_eq!(format!("{:?}", Action::OPEN_FILE), "Action(1)");
+
+        assert_eq!(defaults_test::Nothing(0).to_string(), "0");
+        assert_eq!(defaults_test::Nothing(0).variant_name(), None);
+        assert_eq!(format!("[{:>8}]", Action::SUCCESS), "[ SUCCESS]");
+        assert_eq!(format!("[{:<4}]", Action(7)), "[7   ]");
+    }
+
+    #[test]
     fn must_default_structs_with_required_fields() {
         use std::collections::{BTreeMap, BTreeSet};
 
