@@ -18,6 +18,7 @@
 pub mod base_one;
 pub mod base_two;
 pub mod defaults_test;
+pub mod error_name_test;
 pub mod keywords;
 pub mod midlayer;
 pub mod recursive;
@@ -810,5 +811,30 @@ mod tests {
                 message: None,
             }
         );
+    }
+
+    #[test]
+    fn must_generate_a_struct_named_error() {
+        fn assert_std_error<E: std::error::Error>(_: &E) {}
+
+        let response = error_name_test::Response {
+            success: false,
+            error: Some(error_name_test::Error {
+                code: Some("E1".to_owned()),
+                message: "failed".to_owned(),
+            }),
+        };
+        assert_eq!(
+            assert_json_round_trip(&response),
+            r#"{"1":{"tf":0},"2":{"rec":{"1":{"str":"E1"},"2":{"str":"failed"}}}}"#
+        );
+
+        let failure = error_name_test::Failure {
+            error: response.error.clone(),
+        };
+        assert_std_error(&failure);
+        assert_eq!(failure.to_string(), "remote service threw Failure");
+        let error: thrift::Error = failure.into();
+        assert!(matches!(error, thrift::Error::User(_)));
     }
 }

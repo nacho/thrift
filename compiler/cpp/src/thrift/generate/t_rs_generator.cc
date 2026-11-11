@@ -622,7 +622,6 @@ void t_rs_generator::render_attributes_and_includes() {
   f_gen_ << "use std::collections::{BTreeMap, BTreeSet};" << '\n';
   f_gen_ << "use std::convert::{From, TryFrom};" << '\n';
   f_gen_ << "use std::default::Default;" << '\n';
-  f_gen_ << "use std::error::Error;" << '\n';
   f_gen_ << "use std::fmt;" << '\n';
   f_gen_ << "use std::fmt::{Display, Formatter};" << '\n';
   f_gen_ << "use std::rc::Rc;" << '\n';
@@ -1284,7 +1283,7 @@ void t_rs_generator::render_struct_definition(const string& struct_name,
 void t_rs_generator::render_exception_struct_error_trait_impls(const string& struct_name,
                                                                t_struct* tstruct) {
   // error::Error trait
-  f_gen_ << "impl Error for " << struct_name << " {}" << '\n';
+  f_gen_ << "impl std::error::Error for " << struct_name << " {}" << '\n';
   f_gen_ << '\n';
 
   // convert::From trait
