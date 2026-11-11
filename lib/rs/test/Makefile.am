@@ -40,6 +40,9 @@ check: stubs
 	$(CARGO) clippy --all -- -D warnings
 	$(CARGO) build
 	$(CARGO) test
+	$(CARGO) fmt --manifest-path no_server/Cargo.toml -- --check
+	$(CARGO) clippy --manifest-path no_server/Cargo.toml --target-dir target -- -D warnings
+	$(CARGO) test --manifest-path no_server/Cargo.toml --target-dir target
 	[ -d bin ] || mkdir bin
 	cp target/debug/kitchen_sink_server bin/kitchen_sink_server
 	cp target/debug/kitchen_sink_client bin/kitchen_sink_client
@@ -47,6 +50,7 @@ check: stubs
 clean-local:
 	$(CARGO) clean
 	-$(RM) Cargo.lock
+	-$(RM) no_server/Cargo.lock
 	-$(RM) src/base_one.rs
 	-$(RM) src/base_two.rs
 	-$(RM) src/midlayer.rs
@@ -69,6 +73,8 @@ EXTRA_DIST = \
 	thrifts/Keywords.thrift \
 	thrifts/DefaultsTest.thrift \
 	src/lib.rs \
+	no_server/Cargo.toml \
+	no_server/src/lib.rs \
 	src/bin/kitchen_sink_server.rs \
 	src/bin/kitchen_sink_client.rs
 

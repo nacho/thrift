@@ -314,6 +314,7 @@ SKILL.md
 /lib/rs/target/
 /lib/rs/Cargo.lock
 /lib/rs/test/Cargo.lock
+/lib/rs/test/no_server/Cargo.lock
 /lib/rs/test/target/
 /lib/rs/test/bin/
 /lib/rs/test/src/base_one.rs

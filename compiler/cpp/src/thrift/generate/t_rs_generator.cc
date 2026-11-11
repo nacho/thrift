@@ -640,7 +640,10 @@ void t_rs_generator::render_attributes_and_includes() {
   f_gen_ << "use thrift::protocol::verify_expected_sequence_number;" << '\n';
   f_gen_ << "use thrift::protocol::verify_expected_service_call;" << '\n';
   f_gen_ << "use thrift::protocol::verify_required_field_exists;" << '\n';
-  f_gen_ << "use thrift::server::TProcessor;" << '\n';
+  // the server module needs the `server` feature of the thrift crate
+  if (!get_program()->get_services().empty()) {
+    f_gen_ << "use thrift::server::TProcessor;" << '\n';
+  }
   f_gen_ << '\n';
 
   // add all the program includes
