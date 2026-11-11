@@ -68,6 +68,32 @@ value.write_to_out_protocol(&mut TJsonOutputProtocol::new(&mut buf))?;
 let read = MyStruct::read_from_in_protocol(&mut TJsonInputProtocol::new(&buf[..]))?;
 ```
 
+### Default values
+
+Generated enums implement `Default` as their first value in the IDL, or `0` for
+an enum without values. Generated structs and exceptions implement `Default`,
+unless a required field is a union, or a struct that has no `Default` itself:
+
+* `optional` fields and fields without `required` or `optional`, which are all
+  `Option`s, are `None`
+* `required` fields get their IDL default value (`1: required i32 count = 5`),
+  or the default value of their type: `0`, `false`, empty strings, binaries and
+  containers, the default of an enum, and so on
+
+This makes struct update syntax available for structs with many fields:
+
+```rust,ignore
+let envelope = Envelope {
+    kind: EnvelopeKind::ORDER,
+    id,
+    order: Some(order),
+    ..Default::default()
+};
+```
+
+A required field that is left at its default is still written, with that
+value, like the C++ and Java libraries do for a default-constructed struct.
+
 ### TLS
 
 TLS client and server channels are available through the optional `rustls`

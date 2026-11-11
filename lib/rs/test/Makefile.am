@@ -25,7 +25,7 @@ endif
 
 THRIFT = $(top_builddir)/compiler/cpp/thrift
 
-stubs: thrifts/Base_One.thrift thrifts/Base_Two.thrift thrifts/Midlayer.thrift thrifts/Ultimate.thrift thrifts/Keywords.thrift $(top_builddir)/test/Recursive.thrift $(THRIFT)
+stubs: thrifts/Base_One.thrift thrifts/Base_Two.thrift thrifts/Midlayer.thrift thrifts/Ultimate.thrift thrifts/Keywords.thrift thrifts/DefaultsTest.thrift $(top_builddir)/test/Recursive.thrift $(THRIFT)
 	$(THRIFT) -I ./thrifts -out src --gen rs thrifts/Base_One.thrift
 	$(THRIFT) -I ./thrifts -out src --gen rs thrifts/Base_Two.thrift
 	$(THRIFT) -I ./thrifts -out src --gen rs thrifts/Midlayer.thrift
@@ -33,6 +33,7 @@ stubs: thrifts/Base_One.thrift thrifts/Base_Two.thrift thrifts/Midlayer.thrift t
 	$(THRIFT) -out src --gen rs thrifts/Keywords.thrift #THRIFT-6406
 	$(THRIFT) -out src --gen rs $(top_builddir)/test/Recursive.thrift
 	$(THRIFT) -out src --gen rs $(top_builddir)/test/Identifiers.thrift #THRIFT-4953
+	$(THRIFT) -out src --gen rs thrifts/DefaultsTest.thrift
 
 check: stubs
 	$(CARGO) fmt --all -- --check
@@ -53,6 +54,7 @@ clean-local:
 	-$(RM) src/keywords.rs
 	-$(RM) src/recursive.rs
 	-$(RM) src/identifiers.rs
+	-$(RM) src/defaults_test.rs
 	-$(RM) -r bin
 
 distdir:
@@ -65,6 +67,7 @@ EXTRA_DIST = \
 	thrifts/Midlayer.thrift \
 	thrifts/Ultimate.thrift \
 	thrifts/Keywords.thrift \
+	thrifts/DefaultsTest.thrift \
 	src/lib.rs \
 	src/bin/kitchen_sink_server.rs \
 	src/bin/kitchen_sink_client.rs

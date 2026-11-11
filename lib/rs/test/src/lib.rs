@@ -17,6 +17,7 @@
 
 pub mod base_one;
 pub mod base_two;
+pub mod defaults_test;
 pub mod keywords;
 pub mod midlayer;
 pub mod recursive;
@@ -746,6 +747,68 @@ mod tests {
         assert_eq!(
             String::from_utf8(replies).unwrap(),
             r#"[1,"ramen",2,1,{"0":{"rec":{"2":{"i32":3}}}}][1,"napkin",2,2,{"0":{"rec":{}}}]"#
+        );
+    }
+
+    #[test]
+    fn must_default_enums_to_their_first_value() {
+        assert_eq!(defaults_test::Mode::default(), defaults_test::Mode::FIRST);
+    }
+
+    #[test]
+    fn must_default_structs_with_required_fields() {
+        use std::collections::{BTreeMap, BTreeSet};
+
+        let envelope = defaults_test::Envelope::default();
+        assert_eq!(
+            envelope,
+            defaults_test::Envelope {
+                mode: defaults_test::Mode::FIRST,
+                request_id: String::new(),
+                count: 5,
+                tags: vec!["a".to_owned(), "b".to_owned()],
+                inner: defaults_test::Inner {
+                    name: String::new(),
+                    x: None,
+                },
+                launch: None,
+                timestamp: None,
+                retries: None,
+                ratio: thrift::OrderedFloat(1.5),
+                blob: Vec::new(),
+                names: BTreeMap::new(),
+                modes: BTreeSet::new(),
+            }
+        );
+
+        let launch = defaults_test::Envelope {
+            mode: defaults_test::Mode::SECOND,
+            request_id: "r1".to_owned(),
+            launch: Some(defaults_test::Inner {
+                name: "app".to_owned(),
+                ..Default::default()
+            }),
+            retries: Some(2),
+            ..Default::default()
+        };
+        assert_eq!(launch.count, 5);
+        assert_eq!(
+            to_json(&launch),
+            concat!(
+                r#"{"1":{"i32":7},"2":{"str":"r1"},"3":{"i32":5},"4":{"lst":["str",2,"a","b"]},"#,
+                r#""5":{"rec":{"1":{"str":""}}},"6":{"rec":{"1":{"str":"app"}}},"8":{"i32":2},"#,
+                r#""9":{"dbl":1.5},"#,
+                r#""10":{"str":""},"11":{"map":["i32","str",0,{}]},"12":{"set":["i32",0]}}"#
+            )
+        );
+        assert_json_round_trip(&launch);
+
+        assert_eq!(
+            defaults_test::Problem::default(),
+            defaults_test::Problem {
+                mode: defaults_test::Mode::FIRST,
+                message: None,
+            }
         );
     }
 }

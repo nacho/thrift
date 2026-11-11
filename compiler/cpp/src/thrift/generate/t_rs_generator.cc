@@ -140,6 +140,9 @@ private:
   // Write the rust representation of an enum.
   void render_enum_definition(t_enum* tenum, const string& enum_name);
 
+  // Write `impl Default` for an enum: its first value in IDL order, or 0 if it has none.
+  void render_enum_default(t_enum* tenum, const string& enum_name);
+
   // Write the impl blocks associated with the traits necessary to convert an enum to/from an i32.
   void render_enum_conversion(t_enum* tenum, const string& enum_name);
 
@@ -192,6 +195,27 @@ private:
   void render_struct_definition(const string& struct_name,
                                 t_struct* tstruct,
                                 t_rs_generator::e_struct_type struct_type);
+
+  // How `Default` is implemented for a struct: not at all, derived, or written by
+  // `render_struct_default_impl` because a required field has an IDL default value.
+  enum e_default_impl { DEFAULT_NONE, DEFAULT_DERIVE, DEFAULT_IMPL };
+  e_default_impl struct_default_impl(t_struct* tstruct, t_rs_generator::e_struct_type struct_type);
+
+  // Return true if a user-defined struct or exception implements `Default`, either derived or
+  // written by `render_struct_default_impl`.
+  bool struct_has_default(t_struct* tstruct);
+  bool struct_has_default(t_struct* tstruct, set<t_struct*>& visiting);
+
+  // Return true if the value of a field of type `ttype` can be defaulted.
+  bool type_has_default(t_type* ttype, set<t_struct*>& visiting);
+
+  // Return true if the IDL default value of a field of type `ttype` can be written as Rust code.
+  bool can_render_default_value(t_type* ttype);
+
+  // Write `impl Default` for a user-defined struct or exception with a required field that has an
+  // IDL default value. Required fields get their IDL default value, or the default value of their
+  // type, and `Option` fields are `None`.
+  void render_struct_default_impl(const string& struct_name, t_struct* tstruct);
 
   // Writes the impl block associated with the rust representation of a struct. At minimum this
   // contains the methods to read from a protocol and write to a protocol. Additional methods may
@@ -912,7 +936,30 @@ void t_rs_generator::generate_enum(t_enum* tenum) {
   string enum_name(rust_camel_case(tenum->get_name()));
   render_enum_definition(tenum, enum_name);
   render_enum_impl(tenum, enum_name);
+  render_enum_default(tenum, enum_name);
   render_enum_conversion(tenum, enum_name);
+}
+
+void t_rs_generator::render_enum_default(t_enum* tenum, const string& enum_name) {
+  const vector<t_enum_value*>& constants = tenum->get_constants();
+  if (constants.empty()) {
+    f_gen_ << "#[allow(clippy::derivable_impls)]" << '\n';
+  }
+  f_gen_ << "impl Default for " << enum_name << " {" << '\n';
+  indent_up();
+  f_gen_ << indent() << "fn default() -> Self {" << '\n';
+  indent_up();
+  if (constants.empty()) {
+    f_gen_ << indent() << enum_name << "(0)" << '\n';
+  } else {
+    f_gen_ << indent() << enum_name << "::" << rust_enum_variant_name(constants.front()->get_name())
+           << '\n';
+  }
+  indent_down();
+  f_gen_ << indent() << "}" << '\n';
+  indent_down();
+  f_gen_ << "}" << '\n';
+  f_gen_ << '\n';
 }
 
 void t_rs_generator::render_enum_definition(t_enum* tenum, const string& enum_name) {
@@ -1071,10 +1118,129 @@ void t_rs_generator::render_struct(const string& struct_name,
                                    t_rs_generator::e_struct_type struct_type) {
   render_type_comment(struct_name);
   render_struct_definition(struct_name, tstruct, struct_type);
+  if (struct_default_impl(tstruct, struct_type) == DEFAULT_IMPL) {
+    render_struct_default_impl(struct_name, tstruct);
+  }
   render_struct_impl(struct_name, tstruct, struct_type);
   if (struct_type == t_rs_generator::T_EXCEPTION) {
     render_exception_struct_error_trait_impls(struct_name, tstruct);
   }
+}
+
+t_rs_generator::e_default_impl t_rs_generator::struct_default_impl(
+    t_struct* tstruct,
+    t_rs_generator::e_struct_type struct_type) {
+  if (struct_type != t_rs_generator::T_REGULAR && struct_type != t_rs_generator::T_EXCEPTION) {
+    return DEFAULT_NONE;
+  }
+  if (!struct_has_default(tstruct)) {
+    return DEFAULT_NONE;
+  }
+  const vector<t_field*>& members = tstruct->get_sorted_members();
+  vector<t_field*>::const_iterator members_iter;
+  for (members_iter = members.begin(); members_iter != members.end(); ++members_iter) {
+    t_field* member = *members_iter;
+    if (!is_optional(member->get_req()) && member->get_value() != nullptr) {
+      return DEFAULT_IMPL;
+    }
+  }
+  return DEFAULT_DERIVE;
+}
+
+bool t_rs_generator::struct_has_default(t_struct* tstruct) {
+  set<t_struct*> visiting;
+  return struct_has_default(tstruct, visiting);
+}
+
+bool t_rs_generator::struct_has_default(t_struct* tstruct, set<t_struct*>& visiting) {
+  if (tstruct->is_union()) {
+    return false;
+  }
+  if (!visiting.insert(tstruct).second) {
+    return false;
+  }
+  bool has_default = true;
+  const vector<t_field*>& members = tstruct->get_sorted_members();
+  vector<t_field*>::const_iterator members_iter;
+  for (members_iter = members.begin(); has_default && members_iter != members.end();
+       ++members_iter) {
+    t_field* member = *members_iter;
+    if (is_optional(member->get_req())) {
+      continue;
+    }
+    if (member->get_value() != nullptr) {
+      has_default = can_render_default_value(member->get_type());
+    } else {
+      has_default = type_has_default(member->get_type(), visiting);
+    }
+  }
+  visiting.erase(tstruct);
+  return has_default;
+}
+
+bool t_rs_generator::type_has_default(t_type* ttype, set<t_struct*>& visiting) {
+  ttype = get_true_type(ttype);
+  if (ttype->is_base_type() || ttype->is_enum() || ttype->is_container()) {
+    return true;
+  }
+  if (ttype->is_struct() || ttype->is_xception()) {
+    return struct_has_default((t_struct*)ttype, visiting);
+  }
+  return false;
+}
+
+bool t_rs_generator::can_render_default_value(t_type* ttype) {
+  ttype = get_true_type(ttype);
+  if (ttype->is_base_type()) {
+    return ((t_base_type*)ttype)->get_base() != t_base_type::TYPE_UUID;
+  }
+  if (ttype->is_enum()) {
+    return true;
+  }
+  if (ttype->is_list()) {
+    return can_render_default_value(((t_list*)ttype)->get_elem_type());
+  }
+  if (ttype->is_set()) {
+    return can_render_default_value(((t_set*)ttype)->get_elem_type());
+  }
+  if (ttype->is_map()) {
+    return can_render_default_value(((t_map*)ttype)->get_key_type())
+           && can_render_default_value(((t_map*)ttype)->get_val_type());
+  }
+  return false;
+}
+
+void t_rs_generator::render_struct_default_impl(const string& struct_name, t_struct* tstruct) {
+  f_gen_ << "#[allow(clippy::derivable_impls)]" << '\n';
+  f_gen_ << "impl Default for " << struct_name << " {" << '\n';
+  indent_up();
+  f_gen_ << indent() << "fn default() -> Self {" << '\n';
+  indent_up();
+  f_gen_ << indent() << struct_name << " {" << '\n';
+  indent_up();
+
+  const vector<t_field*>& members = tstruct->get_sorted_members();
+  vector<t_field*>::const_iterator members_iter;
+  for (members_iter = members.begin(); members_iter != members.end(); ++members_iter) {
+    t_field* member = *members_iter;
+    f_gen_ << indent() << rust_field_name(member) << ": ";
+    if (is_optional(member->get_req())) {
+      f_gen_ << "None";
+    } else if (member->get_value() != nullptr) {
+      render_const_value(member->get_type(), member->get_value(), true, true);
+    } else {
+      f_gen_ << "Default::default()";
+    }
+    f_gen_ << "," << '\n';
+  }
+
+  indent_down();
+  f_gen_ << indent() << "}" << '\n';
+  indent_down();
+  f_gen_ << indent() << "}" << '\n';
+  indent_down();
+  f_gen_ << "}" << '\n';
+  f_gen_ << '\n';
 }
 
 void t_rs_generator::render_struct_definition(const string& struct_name,
@@ -1084,15 +1250,7 @@ void t_rs_generator::render_struct_definition(const string& struct_name,
 
   const vector<t_field*> members = tstruct->get_sorted_members();
   vector<t_field*>::const_iterator members_iter;
-  bool need_default
-      = struct_type == t_rs_generator::T_REGULAR || struct_type == t_rs_generator::T_EXCEPTION;
-  for (members_iter = members.begin(); need_default && members_iter != members.end();
-       ++members_iter) {
-    t_field* member = *members_iter;
-    if (!is_optional(member->get_req())) {
-      need_default = false;
-    }
-  }
+  bool need_default = struct_default_impl(tstruct, struct_type) == DEFAULT_DERIVE;
   f_gen_ << "#[derive(Clone, Debug" << (need_default ? ", Default" : "")
          << ", Eq, Hash, Ord, PartialEq, PartialOrd)]" << '\n';
   f_gen_ << visibility_qualifier(struct_type) << "struct " << struct_name << " {" << '\n';

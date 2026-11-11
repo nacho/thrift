@@ -318,6 +318,7 @@ SKILL.md
 /lib/rs/test/bin/
 /lib/rs/test/src/base_one.rs
 /lib/rs/test/src/base_two.rs
+/lib/rs/test/src/defaults_test.rs
 /lib/rs/test/src/midlayer.rs
 /lib/rs/test/src/recursive.rs
 /lib/rs/test/src/ultimate.rs
