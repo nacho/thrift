@@ -1040,18 +1040,27 @@ void t_rs_generator::render_enum_conversion(t_enum* tenum, const string& enum_na
   indent_up();
   f_gen_ << indent() << "fn from(i: i32) -> Self {" << '\n';
   indent_up();
-  f_gen_ << indent() << "match i {" << '\n';
-  indent_up();
   vector<t_enum_value*> constants = tenum->get_constants();
-  vector<t_enum_value*>::iterator constants_iter;
-  for (constants_iter = constants.begin(); constants_iter != constants.end(); ++constants_iter) {
-    t_enum_value* val = (*constants_iter);
-    f_gen_ << indent() << val->get_value() << " => " << enum_name
-           << "::" << rust_enum_variant_name(val->get_name()) << "," << '\n';
+  if (constants.empty()) {
+    f_gen_ << indent() << enum_name << "(i)" << '\n';
+  } else {
+    f_gen_ << indent() << "match i {" << '\n';
+    indent_up();
+    vector<t_enum_value*>::iterator constants_iter;
+    set<int> seen_values;
+    for (constants_iter = constants.begin(); constants_iter != constants.end(); ++constants_iter) {
+      t_enum_value* val = (*constants_iter);
+      // a repeated value maps to its first name, like in the C++ generator
+      if (!seen_values.insert(val->get_value()).second) {
+        continue;
+      }
+      f_gen_ << indent() << val->get_value() << " => " << enum_name
+             << "::" << rust_enum_variant_name(val->get_name()) << "," << '\n';
+    }
+    f_gen_ << indent() << "_ => " << enum_name << "(i)" << '\n';
+    indent_down();
+    f_gen_ << indent() << "}" << '\n';
   }
-  f_gen_ << indent() << "_ => " << enum_name << "(i)" << '\n';
-  indent_down();
-  f_gen_ << indent() << "}" << '\n';
   indent_down();
   f_gen_ << indent() << "}" << '\n';
   indent_down();

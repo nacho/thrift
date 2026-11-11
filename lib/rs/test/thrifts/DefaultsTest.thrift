@@ -24,6 +24,17 @@ enum Mode {
   Second = 7,
 }
 
+// Mixes the naming styles of IDL enum values, and repeats a value
+enum Action {
+  OpenFile = 1,
+  SUCCESS = 2,
+  closeAll = 3,
+  Done = 2,
+}
+
+enum Nothing {
+}
+
 typedef i32 Count
 
 struct Inner {

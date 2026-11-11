@@ -757,6 +757,17 @@ mod tests {
     }
 
     #[test]
+    fn must_map_repeated_enum_values_to_their_first_name() {
+        use defaults_test::Action;
+
+        assert_eq!(Action::from(2), Action::SUCCESS);
+        assert_eq!(Action::from(2), Action::DONE);
+        assert_eq!(Action::from(3), Action::CLOSE_ALL);
+        assert_eq!(Action::from(99), Action(99));
+        assert_eq!(defaults_test::Nothing::from(5), defaults_test::Nothing(5));
+    }
+
+    #[test]
     fn must_default_structs_with_required_fields() {
         use std::collections::{BTreeMap, BTreeSet};
 
